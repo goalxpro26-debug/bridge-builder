@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Brick Bridge Race</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#1b2a4a; font-family:Arial,Helvetica,sans-serif; }
+  #wrap { position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+  canvas { display:block; background:#7ec850; touch-action:none; }
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; color:#fff; padding:20px; z-index:5; }
+  .hidden { display:none !important; }
+  h1 { font-size:42px; color:#ffd93b; text-shadow:3px 3px 0 #c25e00, 0 4px 12px rgba(0,0,0,.5); letter-spacing:1px; margin-bottom:6px; }
+  h2 { font-size:30px; color:#ffd93b; text-shadow:2px 2px 0 #7a3c00; margin-bottom:10px; }
+  .sub { font-size:16px; color:#eaf6ff; margin-bottom:18px; max-width:340px; line-height:1.45; }
+  .panel { background:rgba(10,25,55,.82); border:3px solid #ffd93b; border-radius:16px; padding:18px 20px; max-width:360px; }
+  .panel p { font-size:14px; line-height:1.55; color:#eaf6ff; text-align:left; margin:6px 0; }
+  .panel b { color:#ffd93b; }
+  button { font-family:inherit; font-size:18px; font-weight:bold; color:#5b2d00; background:#ffd93b;
+    border:none; border-radius:12px; padding:13px 30px; margin:6px; cursor:pointer;
+    box-shadow:0 4px 0 #c25e00, 0 6px 14px rgba(0,0,0,.35); }
+  button:active { transform:translateY(3px); box-shadow:0 1px 0 #c25e00; }
+  button.secondary { background:#fff; color:#1b2a4a; box-shadow:0 4px 0 #8aa0b8, 0 6px 14px rgba(0,0,0,.35); }
+  #hud { position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center;
+    padding:8px 10px; z-index:4; pointer-events:none; font-size:14px; font-weight:bold; color:#fff;
+    text-shadow:1px 1px 2px rgba(0,0,0,.7); }
+  #hud .pill { background:rgba(10,25,55,.65); border-radius:20px; padding:5px 10px; }
+  #hudBtns { position:absolute; top:44px; right:8px; z-index:4; display:flex; gap:6px; }
+  #hudBtns button { font-size:14px; padding:7px 12px; margin:0; border-radius:9px; }
+  #toast { position:absolute; left:50%; top:22%; transform:translateX(-50%); z-index:4; font-size:22px; font-weight:bold;
+    color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,.6); pointer-events:none; opacity:0; transition:opacity .25s; text-align:center; }
+  #bar { position:absolute; left:10px; right:10px; bottom:10px; height:14px; background:rgba(0,0,0,.35); border-radius:8px; z-index:4; overflow:hidden; }
+  #barFill { height:100%; width:0%; background:#ffd93b; border-radius:8px; transition:width .2s; }
+  #barLabel { position:absolute; left:10px; right:10px; bottom:26px; text-align:center; font-size:12px; font-weight:bold; color:#fff; text-shadow:1px 1px 2px rgba(0,0,0,.7); z-index:4; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="480" height="720"></canvas>
+
+  <div id="hud" class="hidden">
+    <span class="pill" id="hudLevel">Race 1/20</span>
+    <span class="pill" id="hudScore">Score 0</span>
+    <span class="pill" id="hudLives">♥♥♥</span>
+    <span class="pill" id="hudStack">🧱 0/6</span>
+  </div>
+  <div id="hudBtns" class="hidden">
+    <button id="pauseBtn">⏸ Pause</button>
+    <button id="muteBtn">🔊 Sound</button>
+  </div>
+  <div id="toast"></div>
+  <div id="barLabel" class="hidden">Bridge bricks</div>
+  <div id="bar" class="hidden"><div id="barFill"></div></div>
+
+  <!-- Start menu -->
+  <div id="menu" class="overlay" style="background:linear-gradient(180deg, rgba(20,40,90,.55), rgba(10,20,45,.85));">
+    <h1>BRICK<br>BRIDGE RACE</h1>
+    <div class="sub">Grab bricks in <b style="color:#4da6ff">your blue</b>, stack them high, and build the bridge across the gorge — before your rivals knock you flying!</div>
+    <button id="startBtn">▶ START RACE</button>
+    <button id="howBtn" class="secondary">HOW TO PLAY</button>
+    <div class="sub" style="margin-top:14px;font-size:13px;">20 races · more rivals &amp; longer bridges every race · original game</div>
+  </div>
+
+  <!-- How to play -->
+  <div id="how" class="overlay hidden" style="background:rgba(8,18,40,.88);">
+    <div class="panel">
+      <h2 style="text-align:center;">HOW TO PLAY</h2>
+      <p><b>Move:</b> drag / hold mouse or finger, or use WASD / arrow keys.</p>
+      <p><b>Collect:</b> run over <b>blue bricks</b> to stack them on your head. A big stack makes you slower!</p>
+      <p><b>Build:</b> walk up the glowing bridge lane in the middle of the gorge. Each step lays one brick down as a plank.</p>
+      <p><b>Watch out:</b> rivals bump into you and scatter your stack. If you run out of bricks mid-gorge — or a rival beats you to the flag — you lose a heart.</p>
+      <p><b>Win a race:</b> reach the chequered flag at the top. Lose all 3 hearts and the race is over.</p>
+      <p><b>Goal:</b> win all 20 races. Later races have more rivals and much longer bridges.</p>
+    </div>
+    <button id="howCloseBtn">GOT IT</button>
+  </div>
+
+  <!-- Pause -->
+  <div id="pauseMenu" class="overlay hidden" style="background:rgba(8,18,40,.75);">
+    <h2>PAUSED</h2>
+    <button id="resumeBtn">▶ RESUME</button>
+    <button id="restartBtn" class="secondary">↻ RESTART RACE</button>
+    <button id="quitBtn" class="secondary">MENU</button>
+  </div>
+
+  <!-- Level complete -->
+  <div id="levelDone" class="overlay hidden" style="background:rgba(8,40,20,.72);">
+    <h2 id="levelDoneTitle">RACE WON!</h2>
+    <div class="sub" id="levelDoneText"></div>
+    <button id="nextBtn">NEXT RACE ▶</button>
+  </div>
+
+  <!-- Game over -->
+  <div id="gameOver" class="overlay hidden" style="background:rgba(40,8,8,.78);">
+    <h2>RACE OVER</h2>
+    <div class="sub" id="gameOverText"></div>
+    <button id="retryBtn">↻ TRY AGAIN</button>
+    <button id="overMenuBtn" class="secondary">MENU</button>
+  </div>
+
+  <!-- All 20 won -->
+  <div id="winScreen" class="overlay hidden" style="background:linear-gradient(180deg, rgba(20,60,20,.8), rgba(8,25,45,.9));">
+    <h1>🏆 CHAMPION!</h1>
+    <div class="sub" id="winText"></div>
+    <button id="playAgainBtn">▶ PLAY AGAIN</button>
+    <button id="winMenuBtn" class="secondary">MENU</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   BRICK BRIDGE RACE — an original game.
+   Mechanics only inspired by the general idea of collecting
+   bricks in your colour and building a bridge while rivals
+   knock you over. No copied art, code, names, characters or
+   assets. All art is drawn procedurally on canvas; all audio
+   is synthesized with WebAudio.
+   ============================================================ */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 480, H = 720;
+
+// ---------- helpers ----------
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+const $ = id => document.getElementById(id);
+
+// ---------- audio (all synthesized, original) ----------
+let audioCtx = null, muted = false, musicTimer = null, musicStep = 0;
+function ensureAudio() {
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function beep(freq, dur, type, vol, when) {
+  if (!audioCtx || muted) return;
+  const t = audioCtx.currentTime + (when || 0);
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(vol || 0.15, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+const sfx = {
+  pickup() { beep(520, 0.09, 'square', 0.10); beep(780, 0.12, 'square', 0.08, 0.06); },
+  place()  { beep(220, 0.10, 'triangle', 0.18); beep(150, 0.12, 'sine', 0.14, 0.02); },
+  knock()  { beep(140, 0.25, 'sawtooth', 0.20); beep(90, 0.3, 'sawtooth', 0.16, 0.05); },
+  fall()   { beep(400, 0.5, 'sawtooth', 0.14); },
+  win()    { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.22, 'triangle', 0.16, i * 0.12)); },
+  lose()   { [330, 262, 196].forEach((f, i) => beep(f, 0.25, 'triangle', 0.14, i * 0.15)); },
+  click()  { beep(660, 0.06, 'square', 0.08); }
+};
+// Original loop: cheerful 8-note bass + sparkle melody, C major pentatonic.
+const MELODY = [523, 659, 784, 659, 880, 784, 659, 523];
+const BASS   = [131, 175, 196, 175, 131, 175, 196, 262];
+function startMusic() {
+  stopMusic();
+  musicStep = 0;
+  musicTimer = setInterval(() => {
+    if (muted || !audioCtx || state !== 'playing') return;
+    const i = musicStep % 8;
+    beep(BASS[i], 0.32, 'triangle', 0.07);
+    beep(MELODY[i], 0.18, 'sine', 0.05);
+    musicStep++;
+  }, 300);
+}
+function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } }
+
+// ---------- game state ----------
+let state = 'menu'; // menu | playing | paused | levelDone | gameOver | win
+let level = 1, score = 0, lives = 3;
+let levelTime = 0, raceStart = 0;
+let toastTimer = null;
+
+const FIELD = { top: 470, bottom: 700 };   // brick field (below the gorge)
+const TOP   = { top: 0, bottom: 250 };     // finish platform (above the gorge)
+
+function levelConfig(lv) {
+  const gapH = Math.min(72 + lv * 9, 240); // gorge height grows with level
+  return {
+    gapTop: 300,                       // gorge band top
+    gapH: gapH,
+    need: Math.max(3, Math.floor(gapH / 24)), // one plank per 24px of gorge
+    rivals: Math.min(1 + Math.floor((lv - 1) / 4), 4),
+    rivalSpeed: 62 + lv * 3,
+    brickCount: 14 + lv
+  };
+}
+let cfg = levelConfig(1);
+let bridgeX = 240;        // centre x of the player's bridge lane
+let planks = [];          // placed plank y-positions (player bridge)
+let bricks = [];          // loose bricks on the field {x,y,color}
+let player, rivals = [];
+let keys = {};
+let pointer = { active: false, x: 0, y: 0 };
+
+const COLORS = {
+  blue:   { main: '#2f7fe0', dark: '#1c4f9e', light: '#7db8ff', name: 'Blue' },
+  red:    { main: '#e04a3a', dark: '#9e2c20', light: '#ff9a8a', name: 'Red' },
+  orange: { main: '#f08a1d', dark: '#a55a08', light: '#ffbf6e', name: 'Orange' },
+  purple: { main: '#9b59d0', dark: '#642a8f', light: '#c99df0', name: 'Purple' },
+  green:  { main: '#3aa655', dark: '#1f6b32', light: '#8ed6a0', name: 'Green' }
+};
+const RIVAL_COLORS = ['red', 'orange', 'purple', 'green'];
+
+function makeRacer(x, y, colorKey, isPlayer) {
+  return { x, y, r: 17, color: colorKey, stack: 0, speed: isPlayer ? 175 : 0,
+           stun: 0, invuln: 0, dirX: 0, dirY: -1, wobble: Math.random() * 6.28, isPlayer: !!isPlayer,
+           finished: false, aiTarget: null, aiPause: 0 };
+}
+
+function setupLevel(lv) {
+  cfg = levelConfig(lv);
+  bridgeX = rand(120, 360);
+  planks = [];
+  bricks = [];
+  levelTime = 0;
+  // player starts at the bottom centre
+  player = makeRacer(240, 665, 'blue', true);
+  player.speed = 175;
+  // rivals start spread along the bottom
+  rivals = [];
+  for (let i = 0; i < cfg.rivals; i++) {
+    const c = RIVAL_COLORS[i % RIVAL_COLORS.length];
+    const rx = 70 + i * 110 + rand(-20, 20);
+    const r = makeRacer(rx, 640 + rand(-15, 25), c, false);
+    r.speed = cfg.rivalSpeed;
+    r.bridgeX = clamp(bridgeX + (i % 2 === 0 ? 95 : -95) + rand(-25, 25), 55, 425);
+    r.planks = 0;
+    r.need = cfg.need;
+    rivals.push(r);
+  }
+  spawnBricks();
+  updateHUD();
+}
+
+function spawnBricks() {
+  // Scatter each racer's colour bricks across the field; player colour is blue.
+  const palette = ['blue'].concat(rivals.map(r => r.color));
+  for (let i = 0; i < cfg.brickCount; i++) {
+    const color = palette[i % palette.length];
+    bricks.push({ x: rand(30, 450), y: rand(FIELD.top + 12, FIELD.bottom - 12), color });
+  }
+  // Guarantee enough blue bricks exist for the bridge + a spare.
+  const blueCount = bricks.filter(b => b.color === 'blue').length;
+  for (let i = blueCount; i < cfg.need + 2; i++) {
+    bricks.push({ x: rand(30, 450), y: rand(FIELD.top + 12, FIELD.bottom - 12), color: 'blue' });
+  }
+}
+
+function toast(msg, ms) {
+  const t = $('toast');
+  t.textContent = msg; t.style.opacity = 1;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.opacity = 0; }, ms || 1600);
+}
+
+function loseLife(reason) {
+  lives--;
+  sfx.knock();
+  updateHUD();
+  if (lives <= 0) { endGame(reason); return; }
+  toast(reason + '  —  ' + lives + (lives === 1 ? ' heart' : ' hearts') + ' left', 1800);
+  // Respawn the player at the bottom with an empty stack; bridge planks stay.
+  player.x = 240; player.y = 665; player.stack = 0; player.stun = 1.0;
+  rivals.forEach(r => { r.x = clamp(r.x, 50, 430); r.y = 640; r.planks = 0; r.stack = 0; });
+}
+
+// ---------- flow ----------
+function showOnly(id) {
+  ['menu','how','pauseMenu','levelDone','gameOver','winScreen'].forEach(n => $(n).classList.add('hidden'));
+  if (id) $(id).classList.remove('hidden');
+  const inGame = (state === 'playing' || state === 'paused');
+  $('hud').classList.toggle('hidden', !inGame);
+  $('hudBtns').classList.toggle('hidden', !inGame);
+  $('bar').classList.toggle('hidden', !inGame);
+  $('barLabel').classList.toggle('hidden', !inGame);
+}
+function startGame() {
+  ensureAudio(); sfx.click();
+  level = 1; score = 0; lives = 3;
+  setupLevel(level);
+  state = 'playing'; raceStart = performance.now();
+  showOnly(null); startMusic();
+  toast('Race 1 — collect blue bricks!', 2000);
+}
+function nextLevel() {
+  sfx.click();
+  if (level >= 20) { showWin(); return; }
+  level++;
+  lives = 3;
+  setupLevel(level);
+  state = 'playing'; raceStart = performance.now();
+  showOnly(null);
+  toast('Race ' + level + ' — bridge needs ' + cfg.need + ' bricks!', 2000);
+}
+function levelComplete() {
+  const timeBonus = Math.max(0, 600 - Math.floor(levelTime)) * 2;
+  const stackBonus = player.stack * 10;
+  const gained = 100 * level + timeBonus + stackBonus;
+  score += gained;
+  sfx.win(); stopMusic();
+  state = 'levelDone';
+  $('levelDoneTitle').textContent = 'RACE ' + level + ' WON!';
+  $('levelDoneText').textContent = 'You reached the flag! +' + gained + ' points ' +
+    '(race ' + (100 * level) + ' + time ' + timeBonus + ' + spare bricks ' + stackBonus + '). Total: ' + score + '.';
+  $('nextBtn').textContent = level >= 20 ? 'FINISH 🏆' : 'NEXT RACE ▶';
+  showOnly('levelDone'); updateHUD();
+}
+function endGame(reason) {
+  sfx.lose(); stopMusic();
+  state = 'gameOver';
+  $('gameOverText').textContent = reason + ' You reached Race ' + level + ' of 20 with ' + score + ' points.';
+  showOnly('gameOver');
+}
+function showWin() {
+  sfx.win(); stopMusic();
+  state = 'win';
+  $('winText').textContent = 'You won all 20 races and out-built every rival! Final score: ' + score + ' points. You are the Brick Bridge Champion!';
+  showOnly('winScreen');
+}
+function pauseGame() {
+  if (state !== 'playing') return;
+  state = 'paused'; sfx.click(); showOnly('pauseMenu');
+}
+function resumeGame() {
+  if (state !== 'paused') return;
+  state = 'playing'; sfx.click(); showOnly(null);
+}
+function updateHUD() {
+  $('hudLevel').textContent = 'Race ' + level + '/20';
+  $('hudScore').textContent = 'Score ' + score;
+  $('hudLives').textContent = '♥'.repeat(Math.max(0, lives)) + '♡'.repeat(Math.max(0, 3 - lives));
+  $('hudStack').textContent = '🧱 ' + player.stack + '/' + cfg.need;
+  $('barFill').style.width = clamp(player.stack / cfg.need * 100, 0, 100) + '%';
+  $('barLabel').textContent = 'Bridge bricks: ' + player.stack + ' / ' + cfg.need + ' needed';
+}
+
+// ---------- input ----------
+function canvasPos(e) {
+  const r = canvas.getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+  return { x: (cx - r.left) * (W / r.width), y: (cy - r.top) * (H / r.height) };
+}
+canvas.addEventListener('pointerdown', e => { ensureAudio(); pointer.active = true; const p = canvasPos(e); pointer.x = p.x; pointer.y = p.y; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => { if (!pointer.active) return; const p = canvasPos(e); pointer.x = p.x; pointer.y = p.y; });
+canvas.addEventListener('pointerup', () => { pointer.active = false; });
+canvas.addEventListener('pointercancel', () => { pointer.active = false; });
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  if (e.key === 'Escape' || e.key.toLowerCase() === 'p') { if (state === 'playing') pauseGame(); else if (state === 'paused') resumeGame(); }
+  if (e.key.toLowerCase() === 'm') toggleMute();
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+function toggleMute() {
+  muted = !muted;
+  $('muteBtn').textContent = muted ? '🔇 Muted' : '🔊 Sound';
+  if (!muted) ensureAudio();
+}
+$('startBtn').addEventListener('click', startGame);
+$('howBtn').addEventListener('click', () => { sfx.click(); showOnly('how'); });
+$('howCloseBtn').addEventListener('click', () => { sfx.click(); showOnly('menu'); });
+$('pauseBtn').addEventListener('click', pauseGame);
+$('resumeBtn').addEventListener('click', resumeGame);
+$('restartBtn').addEventListener('click', () => { sfx.click(); lives = 3; setupLevel(level); state = 'playing'; showOnly(null); });
+$('quitBtn').addEventListener('click', () => { sfx.click(); stopMusic(); state = 'menu'; showOnly('menu'); });
+$('nextBtn').addEventListener('click', nextLevel);
+$('retryBtn').addEventListener('click', () => { sfx.click(); lives = 3; setupLevel(level); state = 'playing'; showOnly(null); startMusic(); });
+$('overMenuBtn').addEventListener('click', () => { sfx.click(); state = 'menu'; showOnly('menu'); });
+$('playAgainBtn').addEventListener('click', startGame);
+$('winMenuBtn').addEventListener('click', () => { sfx.click(); state = 'menu'; showOnly('menu'); });
+$('muteBtn').addEventListener('click', toggleMute);
+
+// ---------- update ----------
+function moveRacer(r, dx, dy, dt) {
+  if (r.stun > 0) return;
+  const slow = 1 - Math.min(r.stack, 12) * 0.045; // heavier stack = slower
+  const sp = r.speed * slow;
+  const len = Math.hypot(dx, dy);
+  if (len < 0.01) return;
+  r.x = clamp(r.x + dx / len * sp * dt, 20, W - 20);
+  r.y = clamp(r.y + dy / len * sp * dt, 16, H - 16);
+  r.dirX = dx / len; r.dirY = dy / len;
+}
+
+function scatterBricks(r, n) {
+  // Knock the stack off: bricks fly out and land loose in the racer's colour.
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, Math.PI * 2), d = rand(25, 70);
+    bricks.push({ x: clamp(r.x + Math.cos(a) * d, 25, W - 25),
+                  y: clamp(r.y + Math.sin(a) * d, 30, H - 25), color: r.color });
+  }
+}
+
+function updatePlayer(dt) {
+  if (player.invuln > 0) player.invuln -= dt;
+  if (player.stun > 0) { player.stun -= dt; return; }
+  let dx = 0, dy = 0;
+  if (keys['arrowleft'] || keys['a']) dx -= 1;
+  if (keys['arrowright'] || keys['d']) dx += 1;
+  if (keys['arrowup'] || keys['w']) dy -= 1;
+  if (keys['arrowdown'] || keys['s']) dy += 1;
+  if (pointer.active) {
+    const px = pointer.x - player.x, py = pointer.y - player.y;
+    if (Math.hypot(px, py) > 12) { dx = px; dy = py; }
+  }
+  moveRacer(player, dx, dy, dt);
+
+  // Gorge rules: the gorge band is deadly except on your bridge lane.
+  const gapTop = cfg.gapTop, gapBot = cfg.gapTop + cfg.gapH;
+  if (player.y > gapTop && player.y < gapBot) {
+    const onLane = Math.abs(player.x - bridgeX) < 34;
+    if (!onLane) {
+      sfx.fall();
+      loseLife('You fell into the gorge!');
+      return;
+    }
+    // One plank per 24px climbed inside the gorge.
+    const climbed = gapBot - player.y;
+    const due = Math.min(cfg.need, Math.floor(climbed / 24));
+    let placed = false;
+    while (planks.length < due && player.stack > 0) {
+      planks.push(player.y);
+      player.stack--;
+      placed = true;
+    }
+    if (placed) { sfx.place(); updateHUD(); }
+    // Out of bricks with planks still due — the bridge can't be finished.
+    if (due > planks.length && player.stack <= 0) {
+      sfx.fall();
+      loseLife('Out of bricks mid-bridge!');
+      return;
+    }
+  }
+  // Reaching the flag wins the race.
+  if (player.y < 60) { levelComplete(); return; }
+
+  // Collect blue bricks by running over them.
+  for (let i = bricks.length - 1; i >= 0; i--) {
+    const b = bricks[i];
+    if (b.color === 'blue' && dist(player.x, player.y, b.x, b.y) < 26) {
+      bricks.splice(i, 1);
+      player.stack++;
+      sfx.pickup();
+      updateHUD();
+      // Keep the field stocked.
+      if (Math.random() < 0.6) bricks.push({ x: rand(30, 450), y: rand(FIELD.top + 12, FIELD.bottom - 12), color: 'blue' });
+    }
+  }
+}
+
+function updateRival(r, dt) {
+  if (r.stun > 0) { r.stun -= dt; return; }
+  if (r.finished) return;
+  r.aiPause -= dt;
+  const gapTop = cfg.gapTop, gapBot = cfg.gapTop + cfg.gapH;
+  let tx, ty;
+  if (r.stack >= r.need) {
+    // Head for its own bridge lane, then straight up to the flag.
+    tx = r.bridgeX;
+    ty = (r.y > gapTop) ? gapTop - 40 : 50;
+    if (r.y > gapTop && r.y < gapBot) {
+      // Lay rival planks as it climbs (one per 24px, same rule as the player).
+      const due = Math.min(r.need, Math.floor((gapBot - r.y) / 24));
+      while (r.planks < due && r.stack > 0) { r.planks++; r.stack--; }
+    }
+    if (r.y < 60) { r.finished = true; loseLife('A rival reached the flag first!'); return; }
+  } else {
+    // Hunt the nearest brick of its own colour.
+    if (!r.aiTarget || r.aiPause <= 0) {
+      let best = null, bd = 1e9;
+      for (const b of bricks) {
+        if (b.color !== r.color) continue;
+        const d = dist(r.x, r.y, b.x, b.y);
+        if (d < bd) { bd = d; best = b; }
+      }
+      r.aiTarget = best; r.aiPause = 0.8;
+    }
+    if (r.aiTarget) { tx = r.aiTarget.x; ty = r.aiTarget.y; }
+    else { tx = r.x + Math.sin(r.wobble) * 40; ty = FIELD.top + 60; }
+    // Collect.
+    for (let i = bricks.length - 1; i >= 0; i--) {
+      const b = bricks[i];
+      if (b.color === r.color && dist(r.x, r.y, b.x, b.y) < 26) {
+        bricks.splice(i, 1); r.stack++;
+        if (Math.random() < 0.6) bricks.push({ x: rand(30, 450), y: rand(FIELD.top + 12, FIELD.bottom - 12), color: r.color });
+      }
+    }
+  }
+  r.wobble += dt;
+  moveRacer(r, tx - r.x, ty - r.y, dt);
+  // Rivals knock the player over on contact (once per immunity window).
+  if (dist(r.x, r.y, player.x, player.y) < 34 && player.stun <= 0 && player.invuln <= 0) {
+    const lost = player.stack;
+    if (lost > 0) scatterBricks(player, lost);
+    player.stack = 0;
+    player.stun = 1.2;
+    player.invuln = 2.5; // brief immunity so one rival can't chain-stun you
+    // Shove the player away from the rival.
+    const a = Math.atan2(player.y - r.y, player.x - r.x);
+    player.x = clamp(player.x + Math.cos(a) * 46, 20, W - 20);
+    player.y = clamp(player.y + Math.sin(a) * 46, 16, H - 16);
+    updateHUD();
+    if (lost > 0) { toast('Knocked over! Your bricks scattered!', 1500); sfx.knock(); }
+    else { toast('Bumped by a rival!', 1200); }
+  }
+}
+
+function update(dt) {
+  if (state !== 'playing') return;
+  levelTime += dt;
+  updatePlayer(dt);
+  if (state !== 'playing') return; // level may have ended inside updatePlayer
+  for (const r of rivals) {
+    updateRival(r, dt);
+    if (state !== 'playing') return;
+  }
+}
+
+// ---------- drawing (all procedural) ----------
+function drawBrick(x, y, colorKey, scale) {
+  const c = COLORS[colorKey], s = scale || 1;
+  const w = 30 * s, h = 15 * s;
+  ctx.fillStyle = c.dark; ctx.fillRect(x - w / 2 + 1, y - h / 2 + 2, w, h);
+  ctx.fillStyle = c.main; ctx.fillRect(x - w / 2, y - h / 2, w, h);
+  ctx.fillStyle = c.light; ctx.fillRect(x - w / 2 + 2, y - h / 2 + 2, w - 4, 4);
+  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x - w / 2, y - h / 2, w, h);
+}
+function drawRacer(r) {
+  const c = COLORS[r.color];
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.ellipse(r.x, r.y + 15, 16, 6, 0, 0, Math.PI * 2); ctx.fill();
+  // stack of bricks above the head
+  for (let i = 0; i < Math.min(r.stack, 12); i++) {
+    drawBrick(r.x, r.y - 26 - i * 13, r.color, 0.85);
+  }
+  // body
+  ctx.fillStyle = c.dark; ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c.main; ctx.beginPath(); ctx.arc(r.x, r.y - 2, r.r - 2, 0, Math.PI * 2); ctx.fill();
+  // helmet stripe
+  ctx.fillStyle = c.light; ctx.beginPath(); ctx.arc(r.x, r.y - 6, 8, Math.PI, 0); ctx.fill();
+  // eyes (look in movement direction)
+  const ex = r.dirX * 3, ey = r.dirY * 3;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(r.x - 6 + ex, r.y - 3 + ey, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r.x + 6 + ex, r.y - 3 + ey, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(r.x - 6 + ex * 1.6, r.y - 3 + ey * 1.6, 2.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r.x + 6 + ex * 1.6, r.y - 3 + ey * 1.6, 2.2, 0, Math.PI * 2); ctx.fill();
+  // smile
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(r.x + ex, r.y + 4 + ey, 6, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  if (r.stun > 0) { // dizzy stars
+    ctx.fillStyle = '#ffd93b';
+    for (let i = 0; i < 3; i++) {
+      const a = performance.now() / 200 + i * 2.1;
+      ctx.beginPath(); ctx.arc(r.x + Math.cos(a) * 22, r.y - 18 + Math.sin(a) * 6, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  if (r.isPlayer) {
+    ctx.strokeStyle = '#ffd93b'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r + 5, 0, Math.PI * 2); ctx.stroke();
+    if (r.invuln > 0) { // brief shield ring after being knocked
+      ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r + 10, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const gapTop = cfg.gapTop, gapBot = cfg.gapTop + cfg.gapH;
+
+  // Top platform (finish area) — pale stone with a chequered flag line.
+  ctx.fillStyle = '#d9c9a3'; ctx.fillRect(0, 0, W, gapTop);
+  ctx.fillStyle = '#c9b78d';
+  for (let x = 0; x < W; x += 40) for (let y = 0; y < gapTop; y += 40) ctx.fillRect(x, y, 20, 20);
+  // Flag at the top centre.
+  ctx.fillStyle = '#5b4a2f'; ctx.fillRect(236, 18, 5, 42);
+  ctx.fillStyle = '#fff'; ctx.fillRect(241, 18, 34, 22);
+  ctx.fillStyle = '#222';
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) if ((i + j) % 2 === 0) ctx.fillRect(241 + i * 8.5, 18 + j * 11, 8.5, 11);
+  ctx.fillStyle = '#333'; ctx.font = 'bold 15px Arial'; ctx.textAlign = 'center';
+  ctx.fillText('FINISH', 240, 82);
+
+  // Gorge — dark rocky chasm with water at the bottom.
+  ctx.fillStyle = '#4a3626'; ctx.fillRect(0, gapTop, W, cfg.gapH);
+  ctx.fillStyle = '#2f6db3'; ctx.fillRect(0, gapBot - 18, W, 18);
+  ctx.fillStyle = 'rgba(255,255,255,.35)';
+  for (let x = 10; x < W; x += 55) ctx.fillRect(x, gapBot - 12, 30, 3);
+  // Rocky edges.
+  ctx.fillStyle = '#6b4f33';
+  for (let x = 0; x < W; x += 34) {
+    ctx.beginPath(); ctx.arc(x + 12, gapTop, 12, 0, Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 20, gapBot, 12, Math.PI, 0); ctx.fill();
+  }
+  // Player bridge lane marker (glowing).
+  ctx.fillStyle = 'rgba(255,217,59,.28)';
+  ctx.fillRect(bridgeX - 34, gapTop, 68, cfg.gapH);
+  ctx.strokeStyle = '#ffd93b'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+  ctx.strokeRect(bridgeX - 34, gapTop, 68, cfg.gapH);
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ffd93b'; ctx.font = 'bold 12px Arial';
+  ctx.fillText('YOUR BRIDGE', bridgeX, gapTop - 6);
+  // Placed planks (player bridge).
+  for (const py of planks) {
+    ctx.fillStyle = '#8a5a2b'; ctx.fillRect(bridgeX - 32, py - 9, 64, 18);
+    ctx.fillStyle = '#b07a3e'; ctx.fillRect(bridgeX - 32, py - 9, 64, 6);
+    ctx.strokeStyle = '#5e3c17'; ctx.lineWidth = 2; ctx.strokeRect(bridgeX - 32, py - 9, 64, 18);
+  }
+  // Rival bridge lanes (faint).
+  for (const r of rivals) {
+    ctx.fillStyle = 'rgba(255,255,255,.14)';
+    ctx.fillRect(r.bridgeX - 26, gapTop, 52, cfg.gapH);
+    for (let i = 0; i < r.planks; i++) {
+      const py = gapBot - 12 - i * 24;
+      ctx.fillStyle = COLORS[r.color].main;
+      ctx.fillRect(r.bridgeX - 24, py - 7, 48, 14);
+    }
+  }
+
+  // Field (below the gorge) — grass with tufts and flowers.
+  ctx.fillStyle = '#7ec850'; ctx.fillRect(0, gapBot, W, H - gapBot);
+  ctx.fillStyle = '#6db844';
+  for (let x = 0; x < W; x += 60) for (let y = gapBot + 20; y < H; y += 60) ctx.fillRect(x, y, 30, 30);
+  ctx.strokeStyle = '#5da83a'; ctx.lineWidth = 2;
+  for (let i = 0; i < 14; i++) {
+    const gx = (i * 67) % W, gy = gapBot + 24 + ((i * 53) % (H - gapBot - 40));
+    ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx - 4, gy - 9); ctx.moveTo(gx + 4, gy); ctx.lineTo(gx + 8, gy - 9); ctx.stroke();
+  }
+  ctx.fillStyle = '#fff';
+  [[60, 520], [420, 560], [120, 660], [380, 690]].forEach(p => {
+    for (let i = 0; i < 5; i++) { const a = i * 1.256; ctx.beginPath(); ctx.arc(p[0] + Math.cos(a) * 5, p[1] + Math.sin(a) * 5, 3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = '#ffd93b'; ctx.beginPath(); ctx.arc(p[0], p[1], 3, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff';
+  });
+
+  // Loose bricks.
+  for (const b of bricks) drawBrick(b.x, b.y, b.color, 1);
+
+  // Racers.
+  for (const r of rivals) drawRacer(r);
+  drawRacer(player);
+
+  // Pointer target ring while dragging.
+  if (pointer.active && state === 'playing') {
+    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(pointer.x, pointer.y, 14, 0, Math.PI * 2); ctx.stroke();
+  }
+  // Level banner.
+  if (state === 'playing') {
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0, gapTop - 34, W, 0); // (kept minimal)
+  }
+}
+
+// ---------- main loop ----------
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+function fitCanvas() {
+  const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+  canvas.style.width = (W * scale) + 'px';
+  canvas.style.height = (H * scale) + 'px';
+}
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+setupLevel(1);
+state = 'menu';
+showOnly('menu');
+requestAnimationFrame(loop);
+
+// Test hooks (used by the headless test; harmless in play).
+window.__game = {
+  get state() { return state; },
+  get level() { return level; },
+  get score() { return score; },
+  get lives() { return lives; },
+  get need() { return cfg.need; },
+  get player() { return player; },
+  get bricks() { return bricks; },
+  get planks() { return planks; },
+  get rivals() { return rivals; },
+  get bridgeX() { return bridgeX; },
+  get gapTop() { return cfg.gapTop; },
+  get gapH() { return cfg.gapH; },
+  configFor: lv => levelConfig(lv),
+  start: startGame,
+  next: nextLevel,
+  teleport(x, y) { player.x = x; player.y = y; }
+};
+</script>
+</body>
+</html>

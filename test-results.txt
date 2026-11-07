@@ -1,0 +1,25 @@
+PASS  page loads, menu state
+PASS  click START -> playing
+PASS  level 1, 3 lives, need=3
+PASS  core action: mouse-drag collects blue bricks to need — stack=3 need=3
+PASS  keyboard ArrowUp moves player — y 650 -> 635
+PASS  pause button -> paused
+PASS  resume -> playing
+PASS  click START -> playing
+PASS  setup: full stack
+PASS  difficulty scales: L1 need 3 / 1 rival -> L20 need 10 / 4 rivals — {"l1need":3,"l1rivals":1,"l20need":10,"l20rivals":4,"l20gap":240}
+PASS  drag up bridge lane lays planks — planks=3
+PASS  reach flag -> level complete — state=levelDone
+PASS  NEXT RACE -> level 2 playing
+PASS  level 2 config loaded — need L2=3
+PASS  rival knock scatters the stack — {"stack":0,"lives":3,"state":"playing"}
+PASS  no console/page errors
+--- probe-mute.js (final build) ---
+PASS  mute button toggles label
+PASS  mute toggles back
+PASS  no console/page errors
+--- probe-gameover.js (final build) ---
+PASS  how-to-play opens
+PASS  last fall -> game over (lives 3 -> 2 -> 1 -> 0)
+PASS  retry restarts race with 3 lives
+PASS  no console/page errors
